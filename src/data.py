@@ -7,6 +7,7 @@ import requests
 
 BASE = "https://iss.moex.com/iss/history/engines/stock/markets/shares/boards/TQBR/securities"
 START_DATE = "2014-01-01"
+END_DATE = "2026-08-19"
 SPLIT_THRESHOLD = 0.5
 
 TICKERS = [
@@ -22,7 +23,7 @@ def project_root():
     return cwd.parent if cwd.name == "notebooks" else cwd
 
 
-def load_history(ticker, start_date=START_DATE, retries=3):
+def load_history(ticker, start_date=START_DATE, end_date=END_DATE, retries=3):
     """Качает дневную историю по бумаге с MOEX ISS, обходя пагинацию.
 
     При сетевых сбоях повторяет запрос до retries раз
@@ -34,7 +35,12 @@ def load_history(ticker, start_date=START_DATE, retries=3):
             try:
                 response = requests.get(
                     f"{BASE}/{ticker}.json",
-                    params={"from": start_date, "start": cursor, "iss.meta": "off"},
+                    params={
+                        "from": start_date,
+                        "till": end_date,
+                        "start": cursor,
+                        "iss.meta": "off",
+                    },
                     timeout=30,
                 )
                 response.raise_for_status()
