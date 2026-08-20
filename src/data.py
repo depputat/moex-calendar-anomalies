@@ -22,22 +22,35 @@ def project_root():
     return cwd.parent if cwd.name == "notebooks" else cwd
 
 
-def load_history(ticker, start_date=START_DATE):
-    """Качает дневную историю по бумаге с MOEX ISS, обходя пагинацию."""
+def load_history(ticker, start_date=START_DATE, retries=3):
+    """Качает дневную историю по бумаге с MOEX ISS, обходя пагинацию.
+
+    При сетевых сбоях повторяет запрос до retries раз
+    с экспоненциально растущей паузой.
+    """
     rows, columns, cursor = [], None, 0
     while True:
-        response = requests.get(
-            f"{BASE}/{ticker}.json",
-            params={"from": start_date, "start": cursor, "iss.meta": "off"},
-            timeout=30,
-        )
-        response.raise_for_status()
+        for attempt in range(retries):
+            try:
+                response = requests.get(
+                    f"{BASE}/{ticker}.json",
+                    params={"from": start_date, "start": cursor, "iss.meta": "off"},
+                    timeout=30,
+                )
+                response.raise_for_status()
+                break
+            except requests.exceptions.RequestException:
+                if attempt == retries - 1:
+                    raise
+                time.sleep(2 ** attempt)
+
         block = response.json()["history"]
         if not block["data"]:
             break
         columns = block["columns"]
         rows.extend(block["data"])
         cursor += len(block["data"])
+
     df = pd.DataFrame(rows, columns=columns)
     df["TRADEDATE"] = pd.to_datetime(df["TRADEDATE"])
     return df
